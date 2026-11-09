@@ -1,0 +1,5 @@
+# e2b.toml
+name = "anitsarkar123/multi-lang-test"
+description = "Multi-language test template with Playwright, C/C++, Go, Java, Rust, Python"
+dockerfile = "Dockerfile"
+build_args = {}
