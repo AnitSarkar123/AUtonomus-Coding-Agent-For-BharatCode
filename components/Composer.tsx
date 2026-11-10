@@ -11,12 +11,18 @@ interface Props {
   disabled?: boolean;
   onRun: () => void;
   onStop: () => void;
+  hasGitHubMCP?: boolean;
+  hasMessages?: boolean;
+  onCreatePR?: () => void;
 }
 
-export default function Composer({ repo, setRepo, task, setTask, running, disabled = false, onRun, onStop }: Props) {
+export default function Composer({ repo, setRepo, task, setTask, running, disabled = false, onRun, onStop, hasGitHubMCP = false, hasMessages = false, onCreatePR }: Props) {
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onRun(); }
   }
+
+  // Show Create PR button when: not running, has messages (work done), has GitHub MCP connected, and user is signed in
+  const showCreatePR = !running && hasMessages && hasGitHubMCP && !disabled && onCreatePR;
 
   return (
     <div className="composer">
@@ -47,6 +53,11 @@ export default function Composer({ repo, setRepo, task, setTask, running, disabl
             {running && (
               <button className="btn ghost" onClick={onStop} title="Stop agent">
                 <Icon name="x" size={14} />Stop
+              </button>
+            )}
+            {showCreatePR && (
+              <button className="btn" onClick={onCreatePR} style={{ background: 'var(--accent)', borderColor: 'var(--accent)', color: '#000' }} title="Create a PR for the changes">
+                <Icon name="git-pull-request" size={14} />Create PR
               </button>
             )}
             <button className="btn" onClick={onRun} disabled={disabled || running || (!repo.trim() && !task.trim())}>

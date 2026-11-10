@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       tools,
       // Stop the run when the agent asks for approval — request_approval ends the turn so the
       // user can choose a course of action before any mutating work begins — or at the step cap.
-      stopWhen: [stepCountIs(25), hasToolCall('request_approval')],
+      stopWhen: [stepCountIs(500), hasToolCall('request_approval')],
       onFinish: async () => { await cleanupMCP(); },
     });
     return result.toUIMessageStreamResponse();

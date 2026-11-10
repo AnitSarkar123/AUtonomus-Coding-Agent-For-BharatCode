@@ -39,6 +39,7 @@ const CODEX_TOKEN: string | null = (() => {
 
 // Per-provider key resolution. BYOK keys (supplied per-request from the UI) win over
 // server env vars, so a public deployment runs on the visitor's own credentials.
+// Note: openai-compatible (Ollama, LM Studio, vLLM) may not require an API key.
 function keyFor(provider: ProviderName, keys?: ApiKeys): string | undefined {
   switch (provider) {
     case 'anthropic': return keys?.anthropic || process.env.ANTHROPIC_API_KEY || undefined;
@@ -50,6 +51,10 @@ function keyFor(provider: ProviderName, keys?: ApiKeys): string | undefined {
 }
 
 function isConfigured(provider: ProviderName, keys?: ApiKeys): boolean {
+  // openai-compatible (Ollama, LM Studio, vLLM) often doesn't require an API key
+  if (provider === 'openai-compatible') {
+    return true; // Always consider it configured if base URL is reachable
+  }
   return Boolean(keyFor(provider, keys));
 }
 
@@ -69,8 +74,9 @@ function modelFor(provider: ProviderName, modelId: string | undefined, keys?: Ap
     case 'openai-compatible':
       // OpenAI-compatible providers (Ollama, LM Studio, vLLM, etc.) use the Chat Completions endpoint
       // Use BYOK base URL if provided, otherwise fall back to env var
+      // Ollama doesn't require an API key, so pass empty string if not provided
       const baseUrl = keys?.openaiCompatibleBaseUrl || OPENAI_COMPATIBLE_BASE_URL;
-      return createOpenAI({ apiKey, baseURL: baseUrl, name: 'openai-compatible' }).chat(id);
+      return createOpenAI({ apiKey: apiKey || '', baseURL: baseUrl, name: 'openai-compatible' }).chat(id);
   }
 }
 

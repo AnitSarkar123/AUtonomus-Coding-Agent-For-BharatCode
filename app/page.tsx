@@ -433,6 +433,37 @@ export default function Page() {
     setHandoffPreviewUrl(null);
   }
 
+  // Check if GitHub MCP is connected (either via env or user BYOK)
+  const hasGitHubMCP = mcpServers.some(s => s.name === 'github') || envServers.some(s => s.name === 'github');
+
+  // Handle Create PR button click - sends a message to the agent to create a PR
+  function handleCreatePR() {
+    if (isStreaming || !authSession?.user || !hasGitHubMCP) return;
+    
+    // Build a summary of file changes for the agent to use in PR description
+    const fileChangesSummary = touchedFiles.map(f => {
+      const opLabel = f.op === 'write' ? 'Created' : f.op === 'edit' ? 'Modified' : 'Updated';
+      let detail = `${opLabel} \`${f.path}\``;
+      if (f.op === 'write') {
+        const lines = f.content?.split('\n').length ?? 0;
+        detail += ` (${lines} lines)`;
+      } else if (f.op === 'edit') {
+        detail += ` (replaced "${f.search?.slice(0, 50)}...")`;
+      } else if (f.op === 'smart') {
+        detail += ` (${f.linesChanged ?? 0} lines changed)`;
+      }
+      return detail;
+    }).join('\n');
+
+    const prTask = `Create a pull request on GitHub for the changes made in this session.
+
+**Files changed:**
+${fileChangesSummary}
+
+Use the GitHub MCP tools to create the PR with a descriptive title and body summarizing the changes. The PR title should be concise (e.g., "Add feature X" or "Fix bug in Y"). The PR body should include a summary of what was changed and why.`;
+    sendWithBody(prTask);
+  }
+
   return (
     <AuthProvider>
       <div className="app density-regular">
@@ -473,7 +504,10 @@ export default function Page() {
             repo={repo} setRepo={setRepo}
             task={task} setTask={setTask}
             running={isStreaming}
-              disabled={!authSession?.user}
+            disabled={!authSession?.user}
+            hasGitHubMCP={hasGitHubMCP}
+            hasMessages={touchedFiles.length > 0}
+            onCreatePR={handleCreatePR}
             onRun={handleRun}
             onStop={handleStop}
           />
