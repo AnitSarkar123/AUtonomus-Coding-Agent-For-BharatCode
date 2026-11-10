@@ -201,9 +201,10 @@ function McpMenu({ servers, envServers, onServersChange }: {
     }
   }, [open]);
 
-  // A name is taken if a user server or an env-configured server already uses it.
+  // A name is taken if a user server already uses it.
+  // Allow users to override env servers for github/linear by adding their own PAT.
   const nameTaken = (name: string) =>
-    servers.some(s => s.name === name) || envServers.some(e => e.name === name);
+    servers.some(s => s.name === name);
 
   function handleConnect() {
     setErr('');
@@ -276,10 +277,23 @@ function McpMenu({ servers, envServers, onServersChange }: {
     });
   }
 
-  // Env servers win on name collisions (mirrors the agent route's dedupe), so drop any
-  // user entry that shadows one. Env rows render first and are read-only.
-  const userServers = servers.filter(s => !envServers.some(e => e.name === s.name));
-  const count = envServers.length + userServers.length;
+  // User servers override env servers for github/linear (user BYOK).
+  // For other servers, env servers win.
+  const userOverrideNames = new Set(['github', 'linear']);
+  const userServerNames = new Set(servers.map(s => s.name));
+  
+  // Env servers that are NOT overridden by user servers
+  const activeEnvServers = envServers.filter(e => 
+    !userServerNames.has(e.name) || !userOverrideNames.has(e.name)
+  );
+  
+  // User servers that override env servers get a "user" badge
+  const userServersWithBadge = servers.map(s => ({
+    ...s,
+    isUserOverride: userOverrideNames.has(s.name) && envServers.some(e => e.name === s.name)
+  }));
+  
+  const count = activeEnvServers.length + userServersWithBadge.length;
 
   // The expandable tool list, shared by env and user rows.
   function toolsPanel(name: string) {
@@ -309,9 +323,13 @@ function McpMenu({ servers, envServers, onServersChange }: {
     );
   }
 
-  // A connected-server row. `env` rows show an "env" badge and omit the disconnect button.
-  function serverRow(s: { name: string; description?: string; url?: string; auth?: string }, env: boolean) {
+  // A connected-server row. `type` can be 'env', 'user', or false.
+  // 'env' rows show an "env" badge and omit the disconnect button.
+  // 'user' rows show a "user" badge (for user-overridden github/linear) and allow disconnect.
+  function serverRow(s: { name: string; description?: string; url?: string; auth?: string; isUserOverride?: boolean }, type: 'env' | 'user' | false) {
     const isOpen = expanded === s.name;
+    const isEnv = type === 'env';
+    const isUserOverride = type === 'user';
     return (
       <div key={s.name}>
         <div
@@ -326,16 +344,21 @@ function McpMenu({ servers, envServers, onServersChange }: {
           <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, color: 'var(--fg)' }}>{s.name}</span>
-              {env && (
+              {isEnv && (
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--fg-faint)', border: '1px solid var(--line)', borderRadius: 3, padding: '0 4px', lineHeight: '14px' }}>
                   env
+                </span>
+              )}
+              {isUserOverride && (
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--accent-bright)', border: '1px solid var(--accent-line)', borderRadius: 3, padding: '0 4px', lineHeight: '14px' }}>
+                  user
                 </span>
               )}
               <Icon name="chevron" size={11} style={{ transform: isOpen ? 'rotate(90deg)' : 'none', opacity: 0.4, transition: 'transform .12s' }} />
             </span>
             {s.description && <span style={{ fontSize: 11, color: 'var(--fg-faint)' }}>{s.description}</span>}
           </span>
-          {!env && (
+          {!isEnv && (
             <button
               onClick={e => { e.stopPropagation(); handleRemove(s.name); }}
               title="Disconnect"
@@ -370,8 +393,8 @@ function McpMenu({ servers, envServers, onServersChange }: {
             </div>
           ) : (
             <>
-              {envServers.map(s => serverRow(s, true))}
-              {userServers.map(s => serverRow(s, false))}
+              {activeEnvServers.map(s => serverRow(s, 'env'))}
+              {userServersWithBadge.map(s => serverRow(s, s.isUserOverride ? 'user' : false))}
             </>
           )}
 

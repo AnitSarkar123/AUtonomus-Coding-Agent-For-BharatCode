@@ -151,9 +151,18 @@ export async function loadMCPTools(userServers: MCPServerConfig[] = []): Promise
   cleanup: () => Promise<void>;
 }> {
   const envConfigs = resolveEnvConfigs();
-  // Deduplicate: env-configured servers win; drop user entries with the same name.
+  // Deduplicate: user servers override env servers for github/linear (user BYOK).
+  // For other servers, env servers win.
+  const userOverrideNames = new Set(['github', 'linear']);
   const envNames = new Set(envConfigs.map(c => c.name));
-  const configs = [...envConfigs, ...userServers.filter(s => !envNames.has(s.name))];
+  const userNames = new Set(userServers.map(s => s.name));
+  
+  // Filter env configs: keep only those not overridden by user servers
+  const filteredEnvConfigs = envConfigs.filter(c => 
+    !userNames.has(c.name) || !userOverrideNames.has(c.name)
+  );
+  
+  const configs = [...filteredEnvConfigs, ...userServers];
 
   if (configs.length === 0) {
     return { tools: {}, cleanup: async () => {} };
