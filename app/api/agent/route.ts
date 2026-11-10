@@ -6,6 +6,7 @@ import { killPreviewSandbox } from '@/lib/preview';
 import { resolveModel } from '@/lib/router';
 import { makeTools } from '@/lib/tools';
 import { loadMCPTools, isSafeSSEUrl, SAFE_AUTH } from '@/lib/mcp';
+import { auth } from '@/lib/auth';
 
 export const maxDuration = 300;
 
@@ -69,6 +70,11 @@ const AgentRequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: req.headers });
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
   const parsed = AgentRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 });

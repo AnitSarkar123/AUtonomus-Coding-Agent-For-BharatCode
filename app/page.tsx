@@ -8,6 +8,8 @@ import Header from '@/components/Header';
 import AgentLog from '@/components/AgentLog';
 import Composer from '@/components/Composer';
 import Workspace from '@/components/Workspace';
+import { AuthProvider } from '@/components/auth/AuthProvider';
+import { authClient } from '@/lib/auth-client';
 import type { ProviderName, TouchedFile, MCPServerConfig, PlanStep, ApiKeys } from '@/lib/types';
 import type { MCPServerMeta } from '@/lib/mcp';
 
@@ -281,6 +283,26 @@ export default function Page() {
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/agent' }), []);
 
   const { messages, sendMessage, stop, status, error, setMessages } = useChat({ transport });
+  const { data: authSession } = authClient.useSession();
+
+  useEffect(() => {
+    if (!authSession?.user || messages.length === 0) return;
+    const timer = window.setTimeout(() => {
+      void fetch('/api/conversations', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          id: sessionIdRef.current,
+          messages: messages.map(message => ({
+            id: message.id,
+            role: message.role,
+            content: JSON.stringify(message.parts ?? []),
+          })),
+        }),
+      }).catch(() => {});
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [authSession?.user, messages]);
 
   const isStreaming = status === 'streaming' || status === 'submitted';
   const previewUrl = usePreviewUrl(messages);
@@ -339,7 +361,7 @@ export default function Page() {
   function sendWithBody(text: string) {
     // Never send while a turn is in flight — the approval buttons already gate on this, but
     // guarding here too closes the double-send race for any caller (including onRespond).
-    if (isStreaming) return;
+    if (isStreaming || !authSession?.user) return;
     sendMessage(
       { text },
       { body: { sessionId: sessionIdRef.current, provider: providerRef.current, model: modelRef.current, mcpServers: mcpServersRef.current, keys: apiKeysRef.current } }
@@ -375,8 +397,9 @@ export default function Page() {
   }
 
   return (
-    <div className="app density-regular">
-      <Header
+    <AuthProvider>
+      <div className="app density-regular">
+        <Header
         provider={provider} model={model}
         enabledProviders={enabledProviders}
         onChange={(p, m) => { setProvider(p); setModel(m); }}
@@ -412,6 +435,7 @@ export default function Page() {
             repo={repo} setRepo={setRepo}
             task={task} setTask={setTask}
             running={isStreaming}
+              disabled={!authSession?.user}
             onRun={handleRun}
             onStop={handleStop}
           />
@@ -430,6 +454,7 @@ export default function Page() {
           running={isStreaming}
         />
       </div>
-    </div>
+      </div>
+    </AuthProvider>
   );
 }

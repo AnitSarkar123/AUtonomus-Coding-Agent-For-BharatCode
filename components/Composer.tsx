@@ -8,11 +8,12 @@ interface Props {
   task: string;
   setTask: (v: string) => void;
   running: boolean;
+  disabled?: boolean;
   onRun: () => void;
   onStop: () => void;
 }
 
-export default function Composer({ repo, setRepo, task, setTask, running, onRun, onStop }: Props) {
+export default function Composer({ repo, setRepo, task, setTask, running, disabled = false, onRun, onStop }: Props) {
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onRun(); }
   }
@@ -24,6 +25,7 @@ export default function Composer({ repo, setRepo, task, setTask, running, onRun,
           <Icon name="github" size={14} />
           <input
             value={repo}
+            disabled={disabled || running}
             onChange={e => setRepo(e.target.value)}
             placeholder="github.com/owner/repo"
             spellCheck={false}
@@ -33,6 +35,7 @@ export default function Composer({ repo, setRepo, task, setTask, running, onRun,
         </div>
         <textarea
           value={task}
+          disabled={disabled || running}
           onChange={e => setTask(e.target.value)}
           onKeyDown={onKey}
           rows={2}
@@ -46,10 +49,10 @@ export default function Composer({ repo, setRepo, task, setTask, running, onRun,
                 <Icon name="x" size={14} />Stop
               </button>
             )}
-            <button className="btn" onClick={onRun} disabled={running || (!repo.trim() && !task.trim())}>
+            <button className="btn" onClick={onRun} disabled={disabled || running || (!repo.trim() && !task.trim())}>
               {running
                 ? <><span className="tc-status" style={{ width: 12, height: 12 }}><span className="spin" style={{ width: 12, height: 12 }} /></span>Running</>
-                : <><Icon name="send" size={14} />Run task</>}
+                : <><Icon name="send" size={14} />{disabled ? 'Sign in to run' : 'Run task'}</>}
             </button>
           </div>
         </div>

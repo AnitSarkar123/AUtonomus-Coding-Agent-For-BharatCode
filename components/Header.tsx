@@ -6,6 +6,7 @@ import Icon from './Icon';
 import PyramidLogo from './PyramidLogo';
 import type { ProviderName, MCPServerConfig, ApiKeys } from '@/lib/types';
 import { isSafeSSEUrl, type MCPToolInfo, type MCPServerMeta } from '@/lib/mcp';
+import { SignInButton } from './auth/SignInButton';
 
 // Per-server tool fetch state: a tool list once loaded, or a status sentinel.
 type ToolState = MCPToolInfo[] | 'loading' | 'error';
@@ -623,6 +624,7 @@ export default function Header({ provider, model, enabledProviders, onChange, on
       <Link href="/recognize" className="pill" style={{ textDecoration: 'none' }} title="Cerebras × Gemma 4 vision recognition">
         <Icon name="eye" size={13} />Recognize
       </Link>
+      <SignInButton />
       <KeysMenu apiKeys={apiKeys} onKeysChange={onKeysChange} />
       <McpMenu servers={mcpServers} envServers={envServers} onServersChange={onMCPChange} />
       <ProviderPicker provider={provider} model={model} enabled={enabledProviders} onChange={onChange} />
