@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import AgentLog from '@/components/AgentLog';
 import Composer from '@/components/Composer';
 import Workspace from '@/components/Workspace';
+import HistoryPanel from '@/components/HistoryPanel';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { authClient } from '@/lib/auth-client';
 import type { ProviderName, TouchedFile, MCPServerConfig, PlanStep, ApiKeys } from '@/lib/types';
@@ -136,6 +137,8 @@ export default function Page() {
   // BYOK: the visitor's own API keys, entered in the UI. Empty on the server and on first
   // render to avoid hydration mismatch; loaded from localStorage in a client-only effect.
   const [apiKeys, setApiKeys] = useState<ApiKeys>({});
+  // History panel state
+  const [historyOpen, setHistoryOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Refs for per-call body — avoids stale closure and JSON.stringify getter issues.
@@ -279,6 +282,40 @@ export default function Page() {
     sessionStorage.setItem('mcpAuth', JSON.stringify(authMap));
   }
 
+  function handleHistoryOpen() {
+    setHistoryOpen(true);
+  }
+
+  function handleHistoryClose() {
+    setHistoryOpen(false);
+  }
+
+  async function handleLoadConversation(conversationId: string) {
+    if (conversationId === sessionIdRef.current) {
+      handleHistoryClose();
+      return;
+    }
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`);
+      if (!res.ok) throw new Error('Failed to load conversation');
+      const data = await res.json();
+      if (data.messages) {
+        // Parse the messages from the stored format
+        const parsedMessages = data.messages.map((m: { id: string; role: string; content: string }) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant' | 'system',
+          parts: [{ type: 'text', text: m.content }],
+        }));
+        setMessages(parsedMessages);
+        setSessionId(conversationId);
+        sessionIdRef.current = conversationId;
+      }
+    } catch (err) {
+      console.error('Failed to load conversation:', err);
+    }
+    handleHistoryClose();
+  }
+
   // Stable transport — body is passed per sendMessage call, not here.
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/agent' }), []);
 
@@ -404,6 +441,7 @@ export default function Page() {
         enabledProviders={enabledProviders}
         onChange={(p, m) => { setProvider(p); setModel(m); }}
         onNew={newSession}
+        onHistory={handleHistoryOpen}
         running={isStreaming}
         mcpServers={mcpServers}
         envServers={envServers}
@@ -454,6 +492,14 @@ export default function Page() {
           running={isStreaming}
         />
       </div>
+      <HistoryPanel
+        isOpen={historyOpen}
+        onClose={handleHistoryClose}
+        onLoadConversation={handleLoadConversation}
+        currentSessionId={sessionIdRef.current}
+        provider={provider}
+        model={model}
+      />
       </div>
     </AuthProvider>
   );
